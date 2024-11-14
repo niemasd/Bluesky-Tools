@@ -19,8 +19,7 @@ def print_log(s='', end='\n'):
 
 # enrichment = number of given users being followed
 def metric_count(followers):
-    score = {follower_account:sum(1 for k in followers if follower_account in followers[k]) for account, account_followers in followers.items() for follower_account in account_followers}
-    return score
+    return {follower_account:sum(1 for k in followers if follower_account in followers[k]) for account, account_followers in followers.items() for follower_account in account_followers}
 
 # enrichment metrics mapping
 METRICS = {
