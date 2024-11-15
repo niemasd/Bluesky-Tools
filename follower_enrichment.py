@@ -17,13 +17,35 @@ except:
 def print_log(s='', end='\n'):
     stderr.write(s); stderr.write(end); stderr.flush()
 
+# get all of the profiles of a large list of handles
+def get_profiles(handles, client):
+    MAX_LEN = 25 # because of error: 'List should have at most 25 items after validation'
+    handles = list(set(handles))
+    profiles = list()
+    for i in range(0, len(handles), MAX_LEN):
+        print_log("Loaded %d of %d profiles..." % (i, len(handles)))
+        profiles += client.get_profiles(handles[i:i+MAX_LEN]).profiles
+    return profiles
+
 # enrichment = number of given users being followed
-def metric_count(followers):
+def metric_count(followers, client):
     return {follower_account:sum(1 for k in followers if follower_account in followers[k]) for account, account_followers in followers.items() for follower_account in account_followers}
+
+# enrichment = proportion of given users being followed (i.e., count divided by total follows)
+def metric_proportion(followers, client):
+    scores = metric_count(followers, client)
+    follower_profiles = get_profiles(list(scores.keys()), client)
+    follows_count = {follower_profile.handle.strip() : follower_profile.follows_count for follower_profile in follower_profiles}
+    for k in scores:
+        if k not in follows_count:
+            raise RuntimeError("Missing follows count: %s" % k)
+        scores[k] /= follows_count[k]
+    return scores
 
 # enrichment metrics mapping
 METRICS = {
     'count': metric_count,
+    'proportion': metric_proportion,
 }
 
 # parse user arguments
@@ -69,6 +91,7 @@ def get_followers(usernames, client):
             response = graph.get_followers(params)
             curr_followers |= {profile_view.handle.strip() for profile_view in response.followers}
         print_log()
+        curr_followers.discard('handle.invalid')
         followers[username] = curr_followers
     return followers
 
@@ -79,7 +102,7 @@ def main():
     client = create_session()
     print_log("Loading followers...")
     followers = get_followers(args.account, client)
-    scores = METRICS[args.metric](followers)
+    scores = METRICS[args.metric](followers, client)
     print("Username\tScore (%s)" % args.metric)
     for username in sorted(scores.keys(), reverse=True, key=lambda x: (scores[x],x)):
         print("%s\t%s" % (username, scores[username]))
