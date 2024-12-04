@@ -34,27 +34,27 @@ def html_safe(s):
     return s
 
 # show error dialog
-def error(title=TITLE, error_message='An error occurred'):
-    message_dialog(title=title, text=HTML("<ansired>ERROR:</ansired> %s" % error_message)).run()
+def error(error_message='An error occurred'):
+    message_dialog(title='%s - ERROR' % TITLE, text=HTML("<ansired>ERROR:</ansired> %s" % error_message)).run()
 
 # log into Bluesky
-def login(title=TITLE):
+def login():
     client = None
     while client is None:
-        username = input_dialog(title=title, text=HTML("Please enter your Bluesky <ansired>username</ansired> (without the @):"), cancel_text="Exit").run()
+        username = input_dialog(title='%s - Login - Username' % TITLE, text=HTML("Please enter your Bluesky <ansired>username</ansired> (without the @):"), cancel_text="Exit").run()
         if username is None:
             return None
-        password = input_dialog(title=title, text=HTML("Please enter your Bluesky <ansired>password</ansired>:"), password=True).run()
+        password = input_dialog(title='%s - Login - Password' % TITLE, text=HTML("Please enter your Bluesky <ansired>password</ansired>:"), password=True).run()
         client = Client()
         try:
             client.login(username, password)
-        except:
-            error(title=title, error_message="Unable to sign into Bluesky with provided credentials (username: <ansired>%s</ansired>)" % username)
+        except Exception as e:
+            error(error_message="Unable to sign into Bluesky with provided credentials (username: <ansired>%s</ansired>)\n\n%s" % (username, e))
             client = None
     return client
 
 # view a post: https://atproto.blue/en/latest/atproto/atproto_client.models.app.bsky.feed.defs.html#atproto_client.models.app.bsky.feed.defs.PostView
-def view_post(client, post, title=TITLE):
+def view_post(client, post):
     text_items = [
         ('Author', html_safe('%s (%s)' % (post.author.handle, post.author.did))),
         ('Created', html_safe(post.record.created_at)),
@@ -104,10 +104,10 @@ def view_post(client, post, title=TITLE):
         # unknown embed type
         else:
             text += "<ansired>Unsupported embed type: %s</ansired>" % html_safe(post.embed.py_type)
-    message_dialog(title=title, text=HTML(text)).run()
+    message_dialog(title='%s - Post' % TITLE, text=HTML(text)).run()
 
 # view the feed of a given Bluesky profile given a handle or DID
-def view_profile_feed(client, username, title=TITLE):
+def view_profile_feed(client, username):
     profile = client.get_profile(username); cursors = [None]; curr_cursor_ind = 0
     while True:
         text = "Viewing feed of profile: <ansired>%s</ansired> (page %d)" % (html_safe(profile.handle), curr_cursor_ind+1)
@@ -127,7 +127,7 @@ def view_profile_feed(client, username, title=TITLE):
             if len(post_text) > POST_PREVIEW_LENGTH:
                 post_text = "%s<ansired>[...]</ansired>" % post_text[:POST_PREVIEW_LENGTH]
             values.append((post, HTML(post_text)))
-        val = radiolist_dialog(title=title, text=HTML(text), values=values).run()
+        val = radiolist_dialog(title='%s - Posts - %s' % (TITLE, html_safe(profile.handle)), text=HTML(text), values=values).run()
         if val is None:
             return
         elif val == 'prev':
@@ -138,7 +138,7 @@ def view_profile_feed(client, username, title=TITLE):
             view_post(client, val)
 
 # view a Bluesky profile given a handle or DID
-def view_profile(client, username, title=TITLE):
+def view_profile(client, username):
     while True:
         profile = client.get_profile(username)
         text_items = [ # https://atproto.blue/en/latest/atproto/atproto_client.models.app.bsky.actor.defs.html#atproto_client.models.app.bsky.actor.defs.ProfileViewDetailed
@@ -157,7 +157,7 @@ def view_profile(client, username, title=TITLE):
         values = [
             ('view_profile_feed', "View Profile Feed"),
         ]
-        val = radiolist_dialog(title=title, text=HTML(text), values=values).run()
+        val = radiolist_dialog(title='%s - Profile - %s' % (TITLE, html_safe(profile.handle)), text=HTML(text), values=values).run()
         if val is None:
             return
         elif val == 'view_profile_feed':
@@ -166,19 +166,19 @@ def view_profile(client, username, title=TITLE):
             raise ValueError("Invalid selection: %s" % val)
 
 # search for and view a Bluesky profile using handle or DID
-def search_profile(client, title=TITLE):
+def search_profile(client):
     while True:
-        username = input_dialog(title=title, text=HTML("Please enter Bluesky <ansired>username</ansired>:")).run()
+        username = input_dialog(title='%s - Search Profile' % TITLE, text=HTML("Please enter Bluesky <ansired>username</ansired> (without the @):")).run()
         if username is not None:
             try:
                 view_profile(client, username)
             except:
-                error(title=title, error_message="Username not found: <ansired>%s</ansired>\n\nPlease make sure to enter a valid Bluesky handle (without the @) or DID." % username)
+                error(error_message="Username not found: <ansired>%s</ansired>\n\nPlease make sure to enter a valid Bluesky handle (without the @) or DID." % username)
                 continue
         break
 
 # Bluesky TUI home page
-def home(client, title=TITLE):
+def home(client):
     while True:
         text_items = [
             ('Client Handle', html_safe(client._session.handle)),
@@ -189,7 +189,7 @@ def home(client, title=TITLE):
             ('view_client_profile', "View Client Profile"),
             ('search_profile', "Search for Profile"),
         ]
-        val = radiolist_dialog(title=title, text=HTML(text), values=values, cancel_text="Exit").run()
+        val = radiolist_dialog(title='%s - Home - %s' % (TITLE, html_safe(profile.handle)), text=HTML(text), values=values, cancel_text="Exit").run()
         if val is None:
             return
         elif val == 'view_client_profile':
